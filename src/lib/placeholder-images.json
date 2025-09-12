@@ -1,0 +1,41 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "jane1",
+      "description": "Jane smiling at a party",
+      "imageUrl": "https://picsum.photos/seed/jane1/800/600",
+      "imageHint": "woman smiling"
+    },
+    {
+      "id": "jane2",
+      "description": "Jane with a birthday cake",
+      "imageUrl": "https://picsum.photos/seed/jane2/800/600",
+      "imageHint": "birthday cake"
+    },
+    {
+      "id": "jane3",
+      "description": "Jane on a vacation",
+      "imageUrl": "https://picsum.photos/seed/jane3/800/600",
+      "imageHint": "woman beach"
+    },
+    {
+      "id": "john1",
+      "description": "John hiking",
+      "imageUrl": "https://picsum.photos/seed/john1/800/600",
+      "imageHint": "man hiking"
+    },
+    {
+      "id": "john2",
+      "description": "John at his desk",
+      "imageUrl": "https://picsum.photos/seed/john2/800/600",
+      "imageHint": "man office"
+    },
+    {
+      "id": "emily1",
+      "description": "Emily with her pet",
+      "imageUrl": "https://picsum.photos/seed/emily1/800/600",
+      "imageHint": "woman dog"
+    }
+  ]
+}
