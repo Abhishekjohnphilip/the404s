@@ -69,3 +69,4 @@ If you have existing files in `public/uploads/`, you'll need to:
 - Use environment variables in your hosting platform
 - For AWS S3, use IAM roles when possible instead of access keys
 - For Cloudinary, use signed uploads for better security
+

@@ -130,3 +130,4 @@ After setup:
 2. Follow the setup guide in `HOSTED_SETUP.md`
 3. Verify your environment variables are set correctly
 4. Test with a small file first
+

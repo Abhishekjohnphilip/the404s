@@ -17,10 +17,10 @@ Your hosted site can't add media and wishes because it's using local file storag
 
 ```bash
 STORAGE_TYPE=cloudinary
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-CLOUDINARY_UPLOAD_PRESET=your_upload_preset
+CLOUDINARY_CLOUD_NAME=dggooan9t
+CLOUDINARY_API_KEY=627524867498196
+CLOUDINARY_API_SECRET=6dXt-tbBfdWnNt3gqdtjYWHXrPk
+CLOUDINARY_UPLOAD_PRESET=yCLOUDINARY_URL=cloudinary://627524867498196:6dXt-tbBfdWnNt3gqdtjYWHXrPk@dggooan9t
 ```
 
 ### Option 2: AWS S3
@@ -80,3 +80,4 @@ If you're still having issues:
 2. Verify your cloud storage credentials
 3. Check the browser console for errors
 4. Make sure your upload preset allows the file types you're using
+
