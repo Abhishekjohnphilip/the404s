@@ -63,7 +63,7 @@ const dbPath = path.join(process.cwd(), 'src', 'lib', 'db.json');
 // --- Internal Data Access Functions ---
 
 // Reads the entire database from the JSON file.
-async function readDb(): Promise<DbData> {
+export async function readDb(): Promise<DbData> {
   try {
     const fileContent = await fs.readFile(dbPath, 'utf-8');
     const data = JSON.parse(fileContent);
@@ -79,7 +79,7 @@ async function readDb(): Promise<DbData> {
 }
 
 // Writes the entire database to the JSON file.
-async function writeDb(db: DbData): Promise<void> {
+export async function writeDb(db: DbData): Promise<void> {
   await fs.writeFile(dbPath, JSON.stringify(db, null, 2), 'utf-8');
 }
 
@@ -110,14 +110,19 @@ export async function getEventBySlug(
   const event = yearData.events.find(p => p.slug === slug);
   if (!event) return null;
 
-  // For local uploads, the URL is either a data URI or a local file path.
-  // For placeholder images, we still need to look them up.
+  // Handle different URL formats: cloud URLs, local uploads, data URIs, and placeholder images
   const populatedMedia =
     event.media
       .map(mediaItem => {
+        // Cloud storage URLs (S3, Cloudinary, etc.)
+        if (mediaItem.url.startsWith('http://') || mediaItem.url.startsWith('https://')) {
+          return mediaItem;
+        }
+        // Local uploads and data URIs
         if (mediaItem.url.startsWith('data:') || mediaItem.url.startsWith('/uploads/')) {
           return mediaItem;
         }
+        // Placeholder images
         const placeholder = PlaceHolderImages.find(p => p.id === mediaItem.id);
         return {
           ...mediaItem,

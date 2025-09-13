@@ -5,8 +5,7 @@ import { z } from 'zod';
 import { moderateWish } from '@/ai/flows/moderate-wishes';
 import { generateImageHint } from '@/ai/flows/generate-image-hint';
 import { revalidatePath } from 'next/cache';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
+import { uploadFileToStorage } from '@/lib/storage-actions';
 import {
   addYear as dbAddYear,
   addEvent as dbAddEvent,
@@ -86,20 +85,8 @@ export async function submitWish(
     // Handle image upload if present
     if (imageFile && imageFile.size > 0) {
       try {
-        // Ensure uploads directory exists
-        const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-        await mkdir(uploadsDir, { recursive: true });
-
-        const fileId = crypto.randomUUID();
-        const fileExtension = imageFile.name.split('.').pop() || 'jpg';
-        const fileName = `${fileId}.${fileExtension}`;
-        const filePath = path.join(uploadsDir, fileName);
-        
-        // Save file to disk
-        const bytes = await imageFile.arrayBuffer();
-        await writeFile(filePath, Buffer.from(bytes));
-        
-        imageUrl = `/uploads/${fileName}`;
+        const uploadResult = await uploadFileToStorage(imageFile, 'wishes');
+        imageUrl = uploadResult.url;
       } catch (error) {
         console.error('Error saving image:', error);
         return {
@@ -410,28 +397,26 @@ export async function addMediaToEvent(
   const { year, eventSlug, media } = validatedFields.data;
 
   try {
-    // Ensure uploads directory exists
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-    await mkdir(uploadsDir, { recursive: true });
-
     const newMediaItems: MediaItem[] = await Promise.all(
       media.map(async (file, index) => {
         const type = mediaTypes[index];
         const fileId = crypto.randomUUID();
-        const fileExtension = file.name.split('.').pop() || (type === 'image' ? 'jpg' : 'mp4');
-        const fileName = `${fileId}.${fileExtension}`;
-        const filePath = path.join(uploadsDir, fileName);
         
-        // Save file to disk
-        const bytes = await file.arrayBuffer();
-        await writeFile(filePath, Buffer.from(bytes));
+        // Upload file to cloud storage
+        const uploadResult = await uploadFileToStorage(file, 'media');
         
         // Generate hint for images
         let hint = 'media';
         if (type === 'image') {
-          const dataUri = `data:${file.type};base64,${Buffer.from(bytes).toString('base64')}`;
-          const hintResult = await generateImageHint({ photoDataUri: dataUri });
-          hint = hintResult.hint || 'image';
+          try {
+            const bytes = await file.arrayBuffer();
+            const dataUri = `data:${file.type};base64,${Buffer.from(bytes).toString('base64')}`;
+            const hintResult = await generateImageHint({ photoDataUri: dataUri });
+            hint = hintResult.hint || 'image';
+          } catch (error) {
+            console.error('Error generating image hint:', error);
+            hint = 'image';
+          }
         } else {
           hint = 'video';
         }
@@ -439,7 +424,7 @@ export async function addMediaToEvent(
         return {
           id: fileId,
           type: type,
-          url: `/uploads/${fileName}`,
+          url: uploadResult.url,
           hint: hint,
         };
       })

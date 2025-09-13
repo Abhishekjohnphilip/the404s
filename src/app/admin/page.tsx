@@ -47,6 +47,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useRouter } from 'next/navigation';
+import StorageStatus from '@/components/storage-status';
 
 const initialYearState = { success: false, message: '' };
 const initialEventState = { success: false, message: '', newSlug: undefined, updatedSlug: undefined };
@@ -515,6 +516,7 @@ export default function AdminDashboard() {
       </div>
 
       <div className="space-y-8">
+        <StorageStatus />
         <AdminManager onAdminDataChanged={fetchData} currentUser={currentUser} />
 
         {isPending && data.years.length === 0 && <p>Loading...</p>}
