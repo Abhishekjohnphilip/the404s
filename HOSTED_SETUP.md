@@ -82,3 +82,4 @@ If you're still having issues:
 3. Check the browser console for errors
 4. Make sure your upload preset allows the file types you're using
 
+

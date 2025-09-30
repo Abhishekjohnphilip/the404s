@@ -156,7 +156,6 @@ export class LocalStorageService implements StorageService {
   }
 
   async uploadFile(file: File, folder: string = 'uploads'): Promise<{ url: string; key: string }> {
-    // This is a simplified version - in production, you'd want to use a proper file upload service
     const fileId = crypto.randomUUID();
     const fileExtension = file.name.split('.').pop() || 'bin';
     const key = `${folder}/${fileId}.${fileExtension}`;
@@ -197,17 +196,64 @@ export class LocalStorageService implements StorageService {
   }
 }
 
+// Inline Storage Implementation (Saves files as base64 data URIs in the database)
+export class InlineStorageService implements StorageService {
+  async uploadFile(file: File, folder: string = 'uploads'): Promise<{ url: string; key: string }> {
+    const fileId = crypto.randomUUID();
+    const fileExtension = file.name.split('.').pop() || 'bin';
+    const key = `${folder}/${fileId}.${fileExtension}`;
+
+    // Convert file to base64 data URI
+    const bytes = await file.arrayBuffer();
+    const base64 = Buffer.from(bytes).toString('base64');
+    const dataUri = `data:${file.type};base64,${base64}`;
+
+    return {
+      url: dataUri,
+      key,
+    };
+  }
+
+  async deleteFile(key: string): Promise<boolean> {
+    // For inline storage, files are stored in the database
+    // Deletion would need to be handled at the database level
+    // This is a no-op for now since the data URI is embedded in the JSON
+    console.log(`Inline storage: File ${key} would be deleted from database`);
+    return true;
+  }
+
+  getFileUrl(key: string): string {
+    // For inline storage, the URL is the data URI itself
+    // This method is not typically used since URLs are stored directly
+    return key;
+  }
+}
+
 // Storage service factory
 export function createStorageService(): StorageService {
-  const storageType = process.env.STORAGE_TYPE || 'local';
+  const storageType = process.env.STORAGE_TYPE || 'auto';
   
-  // In production/hosted environments, default to cloudinary if no storage is configured
+  // In production/hosted environments, default to inline storage if no cloud storage is configured
   const isProduction = process.env.NODE_ENV === 'production';
   const isHosted = process.env.VERCEL || process.env.NETLIFY || process.env.RAILWAY_ENVIRONMENT;
   
-  if ((isProduction || isHosted) && storageType === 'local') {
-    console.warn('Local storage detected in production environment. This will not work on hosted platforms.');
-    console.warn('Please configure cloud storage (Cloudinary or S3) for production deployment.');
+  // Auto-detect storage type for hosted environments
+  if (storageType === 'auto') {
+    if (isHosted || isProduction) {
+      // Check if cloud storage is configured
+      if (process.env.CLOUDINARY_CLOUD_NAME) {
+        return new CloudinaryStorageService();
+      } else if (process.env.AWS_S3_BUCKET_NAME) {
+        return new S3StorageService();
+      } else {
+        // Use inline storage for hosted environments without cloud storage
+        console.log('Using inline storage for hosted environment (files saved as base64 in database)');
+        return new InlineStorageService();
+      }
+    } else {
+      // Use local storage for development
+      return new LocalStorageService();
+    }
   }
 
   switch (storageType) {
@@ -221,8 +267,15 @@ export function createStorageService(): StorageService {
         throw new Error('Cloudinary configuration missing. Please set CLOUDINARY_CLOUD_NAME and other Cloudinary environment variables.');
       }
       return new CloudinaryStorageService();
+    case 'inline':
+      return new InlineStorageService();
     case 'local':
     default:
+      if ((isProduction || isHosted) && storageType === 'local') {
+        console.warn('Local storage detected in production environment. This will not work on hosted platforms.');
+        console.warn('Switching to inline storage for hosted environment.');
+        return new InlineStorageService();
+      }
       return new LocalStorageService();
   }
 }

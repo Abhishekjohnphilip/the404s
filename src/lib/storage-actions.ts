@@ -1,44 +1,48 @@
 'use server';
 
 import { storageService } from './storage';
+import crypto from 'crypto';
 
-export async function uploadFileToStorage(file: File, folder: string = 'uploads'): Promise<{ url: string; key: string }> {
+/**
+ * Uploads a file to the configured storage service
+ * @param file - The file to upload
+ * @param folder - The folder to upload to (default: 'uploads')
+ * @returns Promise with the upload result containing URL and key
+ */
+export async function uploadFileToStorage(
+  file: File,
+  folder: string = 'uploads'
+): Promise<{ url: string; key: string }> {
   try {
-    return await storageService.uploadFile(file, folder);
+    // Use the configured storage service
+    const result = await storageService.uploadFile(file, folder);
+    return result;
   } catch (error) {
-    console.error('Storage upload error:', error);
-    
-    // Check if it's a configuration error
-    if (error instanceof Error && error.message.includes('configuration missing')) {
-      throw new Error('Storage not configured. Please set up cloud storage (Cloudinary or S3) for file uploads.');
-    }
-    
-    // Check if it's a local storage error in production
-    const isProduction = process.env.NODE_ENV === 'production';
-    const isHosted = process.env.VERCEL || process.env.NETLIFY || process.env.RAILWAY_ENVIRONMENT;
-    
-    if ((isProduction || isHosted) && process.env.STORAGE_TYPE === 'local') {
-      throw new Error('Local storage does not work in hosted environments. Please configure cloud storage.');
-    }
-    
-    throw new Error('Failed to upload file. Please try again or contact support.');
+    console.error('Error uploading file:', error);
+    throw new Error(`Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
+/**
+ * Deletes a file from the configured storage service
+ * @param key - The file key to delete
+ * @returns Promise with boolean indicating success
+ */
 export async function deleteFileFromStorage(key: string): Promise<boolean> {
   try {
     return await storageService.deleteFile(key);
   } catch (error) {
-    console.error('Storage delete error:', error);
+    console.error('Error deleting file:', error);
     return false;
   }
 }
 
-export async function getFileUrlFromStorage(key: string): Promise<string> {
-  try {
-    return storageService.getFileUrl(key);
-  } catch (error) {
-    console.error('Storage URL error:', error);
-    return key; // Return the key as fallback
-  }
+/**
+ * Gets the URL for a file from the configured storage service
+ * @param key - The file key
+ * @returns The file URL
+ */
+export async function getFileUrl(key: string): Promise<string> {
+  return storageService.getFileUrl(key);
 }
+
