@@ -31,12 +31,6 @@ export type GenerateImageHintOutput = z.infer<
   typeof GenerateImageHintOutputSchema
 >;
 
-export async function generateImageHint(
-  input: GenerateImageHintInput
-): Promise<GenerateImageHintOutput> {
-  return generateImageHintFlow(input);
-}
-
 const generateImageHintPrompt = ai.definePrompt({
   name: 'generateImageHintPrompt',
   input: { schema: GenerateImageHintInputSchema },
@@ -57,3 +51,17 @@ const generateImageHintFlow = ai.defineFlow(
     return output!;
   }
 );
+
+export async function generateImageHint(
+  input: GenerateImageHintInput
+): Promise<GenerateImageHintOutput> {
+  try {
+    return await generateImageHintFlow(input);
+  } catch (error) {
+    console.error('AI image hint generation failed, using fallback:', error);
+    // Fallback: return a generic hint if AI fails
+    return {
+      hint: 'image',
+    };
+  }
+}

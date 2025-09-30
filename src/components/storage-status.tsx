@@ -83,7 +83,14 @@ export default function StorageStatus() {
           <Alert>
             <CheckCircle className="h-4 w-4" />
             <AlertDescription>
-              Storage is properly configured and ready to use.
+              {status?.type === 'inline' ? (
+                <div>
+                  <p><strong>Inline storage is active!</strong></p>
+                  <p>Files are saved as base64 data directly in the database. No external storage required.</p>
+                </div>
+              ) : (
+                'Storage is properly configured and ready to use.'
+              )}
             </AlertDescription>
           </Alert>
         ) : (

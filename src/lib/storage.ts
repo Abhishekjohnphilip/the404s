@@ -198,7 +198,14 @@ export class LocalStorageService implements StorageService {
 
 // Inline Storage Implementation (Saves files as base64 data URIs in the database)
 export class InlineStorageService implements StorageService {
+  private readonly MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit for inline storage
+
   async uploadFile(file: File, folder: string = 'uploads'): Promise<{ url: string; key: string }> {
+    // Check file size limit
+    if (file.size > this.MAX_FILE_SIZE) {
+      throw new Error(`File too large. Maximum size for inline storage is ${this.MAX_FILE_SIZE / (1024 * 1024)}MB`);
+    }
+
     const fileId = crypto.randomUUID();
     const fileExtension = file.name.split('.').pop() || 'bin';
     const key = `${folder}/${fileId}.${fileExtension}`;
@@ -207,6 +214,8 @@ export class InlineStorageService implements StorageService {
     const bytes = await file.arrayBuffer();
     const base64 = Buffer.from(bytes).toString('base64');
     const dataUri = `data:${file.type};base64,${base64}`;
+
+    console.log(`Inline storage: Saved file ${file.name} (${file.size} bytes) as base64 data URI`);
 
     return {
       url: dataUri,
@@ -242,8 +251,10 @@ export function createStorageService(): StorageService {
     if (isHosted || isProduction) {
       // Check if cloud storage is configured
       if (process.env.CLOUDINARY_CLOUD_NAME) {
+        console.log('Using Cloudinary storage for hosted environment');
         return new CloudinaryStorageService();
       } else if (process.env.AWS_S3_BUCKET_NAME) {
+        console.log('Using AWS S3 storage for hosted environment');
         return new S3StorageService();
       } else {
         // Use inline storage for hosted environments without cloud storage
@@ -252,6 +263,7 @@ export function createStorageService(): StorageService {
       }
     } else {
       // Use local storage for development
+      console.log('Using local storage for development environment');
       return new LocalStorageService();
     }
   }

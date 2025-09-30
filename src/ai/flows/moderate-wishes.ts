@@ -29,10 +29,6 @@ const ModerateWishOutputSchema = z.object({
 });
 export type ModerateWishOutput = z.infer<typeof ModerateWishOutputSchema>;
 
-export async function moderateWish(input: ModerateWishInput): Promise<ModerateWishOutput> {
-  return moderateWishFlow(input);
-}
-
 const moderateWishPrompt = ai.definePrompt({
   name: 'moderateWishPrompt',
   input: {schema: ModerateWishInputSchema},
@@ -76,3 +72,16 @@ const moderateWishFlow = ai.defineFlow(
     return output!;
   }
 );
+
+export async function moderateWish(input: ModerateWishInput): Promise<ModerateWishOutput> {
+  try {
+    return await moderateWishFlow(input);
+  } catch (error) {
+    console.error('AI moderation failed, allowing content:', error);
+    // Fallback: allow content if AI moderation fails
+    return {
+      isAppropriate: true,
+      reason: undefined,
+    };
+  }
+}

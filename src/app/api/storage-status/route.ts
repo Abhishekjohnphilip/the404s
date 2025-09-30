@@ -2,14 +2,33 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const storageType = process.env.STORAGE_TYPE || 'local';
+    const storageType = process.env.STORAGE_TYPE || 'auto';
     const isProduction = process.env.NODE_ENV === 'production';
     const isHosted = process.env.VERCEL || process.env.NETLIFY || process.env.RAILWAY_ENVIRONMENT;
     
     let configured = false;
     let error: string | undefined;
+    let actualStorageType = storageType;
 
-    switch (storageType) {
+    // Auto-detect storage type for hosted environments
+    if (storageType === 'auto') {
+      if (isHosted || isProduction) {
+        // Check if cloud storage is configured
+        if (process.env.CLOUDINARY_CLOUD_NAME) {
+          actualStorageType = 'cloudinary';
+        } else if (process.env.AWS_S3_BUCKET_NAME) {
+          actualStorageType = 's3';
+        } else {
+          // Use inline storage for hosted environments without cloud storage
+          actualStorageType = 'inline';
+        }
+      } else {
+        // Use local storage for development
+        actualStorageType = 'local';
+      }
+    }
+
+    switch (actualStorageType) {
       case 's3':
         configured = !!(
           process.env.AWS_ACCESS_KEY_ID &&
@@ -33,6 +52,11 @@ export async function GET() {
         }
         break;
         
+      case 'inline':
+        // Inline storage always works - files are saved as base64 in the database
+        configured = true;
+        break;
+        
       case 'local':
       default:
         if (isProduction || isHosted) {
@@ -45,7 +69,7 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      type: storageType,
+      type: actualStorageType,
       configured,
       error,
       environment: {
