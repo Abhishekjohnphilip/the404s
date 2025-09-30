@@ -1,6 +1,6 @@
 'use server';
 
-import { storageService } from './storage';
+import { createStorageService } from './storage';
 import crypto from 'crypto';
 
 /**
@@ -14,7 +14,8 @@ export async function uploadFileToStorage(
   folder: string = 'uploads'
 ): Promise<{ url: string; key: string }> {
   try {
-    // Use the configured storage service
+    // Create storage service dynamically to get current environment
+    const storageService = createStorageService();
     const result = await storageService.uploadFile(file, folder);
     return result;
   } catch (error) {
@@ -30,6 +31,7 @@ export async function uploadFileToStorage(
  */
 export async function deleteFileFromStorage(key: string): Promise<boolean> {
   try {
+    const storageService = createStorageService();
     return await storageService.deleteFile(key);
   } catch (error) {
     console.error('Error deleting file:', error);
@@ -43,6 +45,7 @@ export async function deleteFileFromStorage(key: string): Promise<boolean> {
  * @returns The file URL
  */
 export async function getFileUrl(key: string): Promise<string> {
+  const storageService = createStorageService();
   return storageService.getFileUrl(key);
 }
 

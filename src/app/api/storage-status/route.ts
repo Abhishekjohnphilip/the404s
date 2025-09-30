@@ -4,7 +4,16 @@ export async function GET() {
   try {
     const storageType = process.env.STORAGE_TYPE || 'auto';
     const isProduction = process.env.NODE_ENV === 'production';
-    const isHosted = process.env.VERCEL || process.env.NETLIFY || process.env.RAILWAY_ENVIRONMENT;
+    const isHosted = !!(
+      process.env.VERCEL || 
+      process.env.NETLIFY || 
+      process.env.RAILWAY_ENVIRONMENT ||
+      process.env.RENDER ||
+      process.env.HEROKU_APP_NAME ||
+      process.env.FLY_APP_NAME ||
+      process.env.PLATFORM ||
+      process.env.HOSTING_PLATFORM
+    );
     
     let configured = false;
     let error: string | undefined;

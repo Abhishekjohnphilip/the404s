@@ -244,8 +244,18 @@ export function createStorageService(): StorageService {
   
   // In production/hosted environments, default to inline storage if no cloud storage is configured
   const isProduction = process.env.NODE_ENV === 'production';
-  const isHosted = process.env.VERCEL || process.env.NETLIFY || process.env.RAILWAY_ENVIRONMENT;
+  const isHosted = !!(
+    process.env.VERCEL || 
+    process.env.NETLIFY || 
+    process.env.RAILWAY_ENVIRONMENT ||
+    process.env.RENDER ||
+    process.env.HEROKU_APP_NAME ||
+    process.env.FLY_APP_NAME ||
+    process.env.PLATFORM ||
+    process.env.HOSTING_PLATFORM
+  );
   
+
   // Auto-detect storage type for hosted environments
   if (storageType === 'auto') {
     if (isHosted || isProduction) {

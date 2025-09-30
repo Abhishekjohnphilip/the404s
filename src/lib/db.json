@@ -56,6 +56,13 @@
               "imageUrl": "http://localhost:9002/uploads/541e4d77-8bef-4a39-91d1-e16987246dbe.jpg",
               "createdAt": "2025-09-30T22:48:45.089Z",
               "isAppropriate": true
+            },
+            {
+              "id": "44d0402e-a6b2-402c-a1f3-697a22121cc9",
+              "author": "Hosted Test User",
+              "message": "This is a test message from simulated hosted environment!",
+              "createdAt": "2025-09-30T22:56:25.800Z",
+              "isAppropriate": true
             }
           ]
         },
