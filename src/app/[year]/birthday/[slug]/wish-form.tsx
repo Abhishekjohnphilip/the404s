@@ -177,7 +177,7 @@ export default function WishForm({ person, addWish, year }: WishFormProps) {
                     variant="outline"
                     size="sm"
                     onClick={removeImage}
-                    className="text-red-600 hover:text-red-700"
+                    className="text-destructive hover:text-destructive/80"
                   >
                     <X className="h-4 w-4" />
                     Remove

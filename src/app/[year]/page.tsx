@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Users, Gift, PartyPopper, ChevronLeft } from 'lucide-react';
+import { Users, Gift, PartyPopper, ChevronLeft, BarChart3, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Tabs,
@@ -45,16 +45,48 @@ export default async function YearPage({ params }: YearPageProps) {
 
   const birthdays = events.filter(e => e.type === 'birthday');
   const otherEvents = events.filter(e => e.type === 'event');
+  const polls = events.filter(e => e.type === 'poll');
+  const forms = events.filter(e => e.type === 'form');
 
-  const EventCard = ({ event }: { event: { slug: string; name: string; date: string, type: 'birthday' | 'event'} }) => {
-    const linkHref = event.type === 'birthday' ? `/${year}/birthday/${event.slug}` : `/${year}/event/${event.slug}`;
+  const EventCard = ({ event }: { event: { slug: string; name: string; date: string, type: 'birthday' | 'event' | 'poll' | 'form'} }) => {
+    let linkHref = '';
+    let icon = <PartyPopper className="h-8 w-8 text-primary" />;
+    let buttonText = 'View';
+    let buttonIcon = <Gift className="mr-2 h-4 w-4" />;
+
+    switch (event.type) {
+      case 'birthday':
+        linkHref = `/${year}/birthday/${event.slug}`;
+        icon = <Users className="h-8 w-8 text-primary" />;
+        buttonText = 'Send a Wish';
+        buttonIcon = <Gift className="mr-2 h-4 w-4" />;
+        break;
+      case 'event':
+        linkHref = `/${year}/event/${event.slug}`;
+        icon = <PartyPopper className="h-8 w-8 text-primary" />;
+        buttonText = 'View Event';
+        buttonIcon = <Gift className="mr-2 h-4 w-4" />;
+        break;
+      case 'poll':
+        linkHref = `/${year}/poll/${event.slug}`;
+        icon = <BarChart3 className="h-8 w-8 text-primary" />;
+        buttonText = 'Vote Now';
+        buttonIcon = <BarChart3 className="mr-2 h-4 w-4" />;
+        break;
+      case 'form':
+        linkHref = `/${year}/form/${event.slug}`;
+        icon = <FileText className="h-8 w-8 text-primary" />;
+        buttonText = 'Fill Form';
+        buttonIcon = <FileText className="mr-2 h-4 w-4" />;
+        break;
+    }
     
     return (
         <Card key={event.slug} className="flex flex-col">
         <CardHeader>
             <div className="flex items-center gap-4">
             <div className="bg-secondary p-3 rounded-full">
-                {event.type === 'birthday' ? <Users className="h-8 w-8 text-primary" /> : <PartyPopper className="h-8 w-8 text-primary" />}
+                {icon}
             </div>
             <div>
                 <CardTitle className="font-headline text-2xl">
@@ -68,8 +100,8 @@ export default async function YearPage({ params }: YearPageProps) {
             <div className="mt-6 text-right">
             <Button asChild>
                 <Link href={linkHref}>
-                <Gift className="mr-2 h-4 w-4" />
-                {event.type === 'birthday' ? 'Send a Wish' : 'View Event'}
+                {buttonIcon}
+                {buttonText}
                 </Link>
             </Button>
             </div>
@@ -96,9 +128,11 @@ export default async function YearPage({ params }: YearPageProps) {
 
       {events.length > 0 ? (
         <Tabs defaultValue="birthdays" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto mb-8">
+          <TabsList className="grid w-full grid-cols-4 max-w-2xl mx-auto mb-8">
             <TabsTrigger value="birthdays">Birthdays ({birthdays.length})</TabsTrigger>
             <TabsTrigger value="events">Events ({otherEvents.length})</TabsTrigger>
+            <TabsTrigger value="polls">Polls ({polls.length})</TabsTrigger>
+            <TabsTrigger value="forms">Forms ({forms.length})</TabsTrigger>
           </TabsList>
           <TabsContent value="birthdays">
             {birthdays.length > 0 ? (
@@ -116,6 +150,24 @@ export default async function YearPage({ params }: YearPageProps) {
               </div>
             ) : (
                 <p className="text-center text-muted-foreground py-8">No other events found for {year}.</p>
+            )}
+          </TabsContent>
+          <TabsContent value="polls">
+           {polls.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                {polls.map(event => <EventCard key={event.slug} event={event} />)}
+              </div>
+            ) : (
+                <p className="text-center text-muted-foreground py-8">No polls found for {year}.</p>
+            )}
+          </TabsContent>
+          <TabsContent value="forms">
+           {forms.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                {forms.map(event => <EventCard key={event.slug} event={event} />)}
+              </div>
+            ) : (
+                <p className="text-center text-muted-foreground py-8">No forms found for {year}.</p>
             )}
           </TabsContent>
         </Tabs>

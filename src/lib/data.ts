@@ -20,13 +20,62 @@ export interface MediaItem {
   hint: string;
 }
 
+export interface PollOption {
+  id: string;
+  text: string;
+  votes: number;
+  voters: string[]; // Array of voter IDs/names
+}
+
+export interface Poll {
+  id: string;
+  slug: string;
+  name: string;
+  question: string;
+  options: PollOption[];
+  allowAnonymous: boolean;
+  multipleChoice: boolean;
+  createdAt: string;
+  isActive: boolean;
+}
+
+export interface FormField {
+  id: string;
+  label: string;
+  type: 'text' | 'textarea' | 'email' | 'number' | 'select' | 'checkbox' | 'radio';
+  required: boolean;
+  options?: string[]; // For select, radio fields
+  placeholder?: string;
+}
+
+export interface FormSubmission {
+  id: string;
+  submitterName?: string; // Optional for anonymous submissions
+  responses: { [fieldId: string]: string | string[] };
+  submittedAt: string;
+}
+
+export interface Form {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  fields: FormField[];
+  submissions: FormSubmission[];
+  allowAnonymous: boolean;
+  createdAt: string;
+  isActive: boolean;
+}
+
 export interface Event {
   slug: string;
   name: string;
   date: string;
-  type: 'birthday' | 'event';
+  type: 'birthday' | 'event' | 'poll' | 'form';
   media: MediaItem[];
   wishes: Wish[];
+  pollData?: Poll; // Only for poll type events
+  formData?: Form; // Only for form type events
 }
 
 export interface YearData {
@@ -154,7 +203,9 @@ export async function addEvent(
   year: number,
   name: string,
   date: string,
-  type: 'birthday' | 'event'
+  type: 'birthday' | 'event' | 'poll' | 'form',
+  pollData?: Omit<Poll, 'id' | 'slug' | 'createdAt'>,
+  formData?: Omit<Form, 'id' | 'slug' | 'createdAt' | 'submissions'>
 ): Promise<{ success: boolean; message?: string; newSlug?: string }> {
   const db = await readDb();
   const yearData = db.years.find(y => y.year === year);
@@ -182,6 +233,27 @@ export async function addEvent(
     media: [],
     wishes: [],
   };
+
+  // Add poll data if it's a poll type event
+  if (type === 'poll' && pollData) {
+    newEvent.pollData = {
+      ...pollData,
+      id: crypto.randomUUID(),
+      slug,
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  // Add form data if it's a form type event
+  if (type === 'form' && formData) {
+    newEvent.formData = {
+      ...formData,
+      id: crypto.randomUUID(),
+      slug,
+      createdAt: new Date().toISOString(),
+      submissions: [],
+    };
+  }
 
   yearData.events.push(newEvent);
   await writeDb(db);
@@ -434,6 +506,132 @@ export async function deleteSocialPost(
   
   await writeDb(db);
   return { success: true };
+}
+
+// --- Poll Management Functions ---
+
+export async function votePoll(
+  year: number,
+  eventSlug: string,
+  optionIds: string[],
+  voterName?: string
+): Promise<{ success: boolean; message?: string }> {
+  const db = await readDb();
+  const yearData = db.years.find(y => y.year === year);
+  if (!yearData) {
+    return { success: false, message: 'Year not found.' };
+  }
+
+  const event = yearData.events.find(e => e.slug === eventSlug && e.type === 'poll');
+  if (!event || !event.pollData) {
+    return { success: false, message: 'Poll not found.' };
+  }
+
+  const poll = event.pollData;
+  if (!poll.isActive) {
+    return { success: false, message: 'Poll is not active.' };
+  }
+
+  const voterId = voterName || `anonymous_${crypto.randomUUID().slice(0, 8)}`;
+
+  // Check if user already voted (if not anonymous)
+  if (voterName) {
+    const hasVoted = poll.options.some(option => option.voters.includes(voterId));
+    if (hasVoted) {
+      return { success: false, message: 'You have already voted in this poll.' };
+    }
+  }
+
+  // Validate option IDs
+  const validOptions = poll.options.filter(option => optionIds.includes(option.id));
+  if (validOptions.length === 0) {
+    return { success: false, message: 'Invalid poll options selected.' };
+  }
+
+  // Check multiple choice restriction
+  if (!poll.multipleChoice && optionIds.length > 1) {
+    return { success: false, message: 'This poll allows only one choice.' };
+  }
+
+  // Add votes
+  validOptions.forEach(option => {
+    option.votes += 1;
+    option.voters.push(voterId);
+  });
+
+  await writeDb(db);
+  return { success: true, message: 'Vote recorded successfully!' };
+}
+
+// --- Form Management Functions ---
+
+export async function submitForm(
+  year: number,
+  eventSlug: string,
+  responses: { [fieldId: string]: string | string[] },
+  submitterName?: string
+): Promise<{ success: boolean; message?: string }> {
+  const db = await readDb();
+  const yearData = db.years.find(y => y.year === year);
+  if (!yearData) {
+    return { success: false, message: 'Year not found.' };
+  }
+
+  const event = yearData.events.find(e => e.slug === eventSlug && e.type === 'form');
+  if (!event || !event.formData) {
+    return { success: false, message: 'Form not found.' };
+  }
+
+  const form = event.formData;
+  if (!form.isActive) {
+    return { success: false, message: 'Form is not accepting submissions.' };
+  }
+
+  // Validate required fields
+  const missingFields = form.fields
+    .filter(field => field.required && !responses[field.id])
+    .map(field => field.label);
+
+  if (missingFields.length > 0) {
+    return { 
+      success: false, 
+      message: `Please fill in required fields: ${missingFields.join(', ')}` 
+    };
+  }
+
+  // Create submission
+  const submission: FormSubmission = {
+    id: crypto.randomUUID(),
+    submitterName,
+    responses,
+    submittedAt: new Date().toISOString(),
+  };
+
+  form.submissions.push(submission);
+  await writeDb(db);
+  return { success: true, message: 'Form submitted successfully!' };
+}
+
+export async function getPollResults(
+  year: number,
+  eventSlug: string
+): Promise<Poll | null> {
+  const event = await getEventBySlug(year, eventSlug);
+  if (!event || event.type !== 'poll' || !event.pollData) {
+    return null;
+  }
+  return event.pollData;
+}
+
+export async function getFormSubmissions(
+  year: number,
+  eventSlug: string
+): Promise<FormSubmission[] | null> {
+  const event = await getEventBySlug(year, eventSlug);
+  if (!event || event.type !== 'form' || !event.formData) {
+    return null;
+  }
+  return event.formData.submissions;
 }
 
     

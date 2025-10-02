@@ -67,7 +67,7 @@ export default function WishCard({
   };
 
   return (
-    <Card className="bg-white/80 backdrop-blur-sm">
+    <Card className="bg-card/80 backdrop-blur-sm">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">

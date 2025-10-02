@@ -18,11 +18,74 @@ import {
 } from '@/components/ui/dialog';
 import type { Event, MediaItem } from '@/lib/data';
 import { cn } from '@/lib/utils';
-import { Maximize, X } from 'lucide-react';
+import { Maximize, X, Play, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type MediaGalleryProps = {
   media: Event['media'];
+};
+
+const VideoPlayer = ({ 
+  src, 
+  className, 
+  showControls = true, 
+  isLightbox = false 
+}: { 
+  src: string; 
+  className?: string; 
+  showControls?: boolean;
+  isLightbox?: boolean;
+}) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleVideoClick = (e: React.MouseEvent) => {
+    if (isLightbox) {
+      togglePlay(e);
+    }
+  };
+
+  return (
+    <div className={cn("relative group", className)}>
+      <video
+        ref={videoRef}
+        src={src}
+        controls={isLightbox}
+        muted={!isLightbox}
+        playsInline
+        className="w-full h-full object-cover"
+        onClick={handleVideoClick}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+      />
+      {showControls && !isLightbox && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute inset-0 w-full h-full bg-black/20 hover:bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={togglePlay}
+        >
+          {isPlaying ? (
+            <Pause className="h-12 w-12" />
+          ) : (
+            <Play className="h-12 w-12" />
+          )}
+        </Button>
+      )}
+    </div>
+  );
 };
 
 const GalleryMediaItem = ({
@@ -55,17 +118,18 @@ const GalleryMediaItem = ({
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
       ) : (
-        <video
-          src={item.url}
-          controls={false}
-          muted
-          playsInline
-          className="w-full h-full object-cover"
+        <VideoPlayer 
+          src={item.url} 
+          className="w-full h-full" 
+          showControls={true}
+          isLightbox={false}
         />
       )}
-      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-        <Maximize className="text-white h-12 w-12" />
-      </div>
+      {item.type === 'image' && (
+        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <Maximize className="text-white h-12 w-12" />
+        </div>
+      )}
     </CardContent>
   </Card>
 );
@@ -131,26 +195,26 @@ const Lightbox = ({
                       sizes="100vw"
                     />
                   ) : (
-                    <video
-                      src={item.url}
-                      controls
-                      autoPlay
+                    <VideoPlayer 
+                      src={item.url} 
                       className="w-full h-full"
+                      showControls={false}
+                      isLightbox={true}
                     />
                   )}
                 </div>
               </CarouselItem>
             ))}
           </CarouselContent>
-          <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 text-white bg-black/50 hover:bg-black/80" />
-          <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 text-white bg-black/50 hover:bg-black/80" />
+          <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 text-primary-foreground bg-background/50 hover:bg-background/80" />
+          <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 text-primary-foreground bg-background/50 hover:bg-background/80" />
         </Carousel>
         
         {/* Close button */}
         <Button
           variant="ghost"
           size="icon"
-          className="absolute top-6 right-6 h-12 w-12 text-white hover:text-white hover:bg-white/20 bg-black/30 rounded-full"
+          className="absolute top-6 right-6 h-12 w-12 text-primary-foreground hover:text-primary-foreground hover:bg-background/20 bg-background/30 rounded-full"
           onClick={() => onOpenChange(false)}
         >
           <X className="h-8 w-8" />

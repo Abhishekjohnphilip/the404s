@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { PartyPopper, Sun, Moon, Instagram } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
+import AdminStatus from './admin-status';
 
 export default function AppHeader() {
   const { theme, setTheme } = useTheme();
@@ -25,14 +27,25 @@ export default function AppHeader() {
           <div className="flex items-center">
             <Link
               href="/"
-              className="flex items-center gap-2 text-2xl font-bold text-foreground"
+              className="flex items-center gap-3 text-2xl font-bold text-foreground"
             >
-              <PartyPopper className="h-8 w-8 text-primary" />
+              <div className="relative h-10 w-10">
+                <Image
+                  src="/the404s.png"
+                  alt="THE404s Logo"
+                  fill
+                  className="object-contain"
+                  priority
+                />
+              </div>
               <h1 className="font-headline">THE404s</h1>
             </Link>
           </div>
           
           <div className="flex items-center gap-4">
+            {/* Admin Status */}
+            <AdminStatus />
+            
             {/* Instagram Icon */}
             <Button
               variant="ghost"

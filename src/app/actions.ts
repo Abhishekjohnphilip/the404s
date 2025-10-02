@@ -21,6 +21,8 @@ import {
   getAdmins,
   addSocialPost as dbAddSocialPost,
   deleteSocialPost as dbDeleteSocialPost,
+  votePoll as dbVotePoll,
+  submitForm as dbSubmitForm,
 } from '@/lib/data';
 import { redirect } from 'next/navigation';
 import type { Wish, MediaItem } from '@/lib/data';
@@ -221,7 +223,32 @@ const addEventSchema = z.object({
   year: z.coerce.number(),
   name: z.string().min(1, 'Name is required.'),
   date: z.string().min(1, 'Date is required.'),
-  type: z.enum(['birthday', 'event']),
+  type: z.enum(['birthday', 'event', 'poll', 'form']),
+});
+
+const addPollSchema = z.object({
+  year: z.coerce.number(),
+  name: z.string().min(1, 'Name is required.'),
+  date: z.string().min(1, 'Date is required.'),
+  question: z.string().min(1, 'Question is required.'),
+  options: z.array(z.string().min(1)).min(2, 'At least 2 options required.'),
+  allowAnonymous: z.boolean(),
+  multipleChoice: z.boolean(),
+});
+
+const addFormSchema = z.object({
+  year: z.coerce.number(),
+  name: z.string().min(1, 'Name is required.'),
+  date: z.string().min(1, 'Date is required.'),
+  description: z.string().min(1, 'Description is required.'),
+  fields: z.array(z.object({
+    label: z.string().min(1),
+    type: z.enum(['text', 'textarea', 'email', 'number', 'select', 'checkbox', 'radio']),
+    required: z.boolean(),
+    options: z.array(z.string()).optional(),
+    placeholder: z.string().optional(),
+  })).min(1, 'At least 1 field required.'),
+  allowAnonymous: z.boolean(),
 });
 
 export type EventFormState = {
@@ -570,6 +597,205 @@ export async function deleteSocialPost(formData: FormData) {
     return result;
   } catch (error) {
     console.error('Error deleting social post:', error);
+    return {
+      success: false,
+      message: 'An unexpected error occurred. Please try again later.',
+    };
+  }
+}
+
+// --- Poll Actions ---
+
+export async function addPoll(
+  prevState: EventFormState,
+  formData: FormData
+): Promise<EventFormState> {
+  const options = formData.getAll('options[]').map(String).filter(Boolean);
+  
+  const validatedFields = addPollSchema.safeParse({
+    year: formData.get('year'),
+    name: formData.get('name'),
+    date: formData.get('date'),
+    question: formData.get('question'),
+    options: options,
+    allowAnonymous: formData.get('allowAnonymous') === 'true',
+    multipleChoice: formData.get('multipleChoice') === 'true',
+  });
+
+  if (!validatedFields.success) {
+    return {
+      success: false,
+      message: validatedFields.error.errors[0].message,
+    };
+  }
+
+  const { year, name, date, question, options: pollOptions, allowAnonymous, multipleChoice } = validatedFields.data;
+
+  const pollData = {
+    name,
+    question,
+    options: pollOptions.map(text => ({
+      id: crypto.randomUUID(),
+      text,
+      votes: 0,
+      voters: [],
+    })),
+    allowAnonymous,
+    multipleChoice,
+    isActive: true,
+  };
+
+  try {
+    const result = await dbAddEvent(year, name, date, 'poll', pollData);
+
+    if (result.success && result.newSlug) {
+      revalidatePath(`/admin`);
+      revalidatePath(`/${year}`);
+      return { success: true, message: 'Poll created!', newSlug: result.newSlug };
+    } else {
+      return { success: false, message: result.message || 'Failed to create poll.' };
+    }
+  } catch (error) {
+    console.error('Error creating poll:', error);
+    return {
+      success: false,
+      message: 'An unexpected error occurred. Please try again later.',
+    };
+  }
+}
+
+export async function votePoll(
+  prevState: { success: boolean; message: string },
+  formData: FormData
+): Promise<{ success: boolean; message: string }> {
+  const year = parseInt(formData.get('year') as string, 10);
+  const eventSlug = formData.get('eventSlug') as string;
+  const voterName = formData.get('voterName') as string || undefined;
+  const optionIds = formData.getAll('optionIds[]').map(String);
+
+  if (!year || !eventSlug || optionIds.length === 0) {
+    return { success: false, message: 'Missing required fields.' };
+  }
+
+  try {
+    const result = await dbVotePoll(year, eventSlug, optionIds, voterName);
+
+    if (result.success) {
+      revalidatePath(`/${year}/poll/${eventSlug}`);
+    }
+
+    return {
+      success: result.success,
+      message: result.message || (result.success ? 'Vote recorded successfully!' : 'Failed to record vote.')
+    };
+  } catch (error) {
+    console.error('Error voting in poll:', error);
+    return {
+      success: false,
+      message: 'An unexpected error occurred. Please try again later.',
+    };
+  }
+}
+
+// --- Form Actions ---
+
+export async function addForm(
+  prevState: EventFormState,
+  formData: FormData
+): Promise<EventFormState> {
+  const fieldsData = JSON.parse(formData.get('fields') as string || '[]');
+  
+  const validatedFields = addFormSchema.safeParse({
+    year: formData.get('year'),
+    name: formData.get('name'),
+    date: formData.get('date'),
+    description: formData.get('description'),
+    fields: fieldsData,
+    allowAnonymous: formData.get('allowAnonymous') === 'true',
+  });
+
+  if (!validatedFields.success) {
+    return {
+      success: false,
+      message: validatedFields.error.errors[0].message,
+    };
+  }
+
+  const { year, name, date, description, fields, allowAnonymous } = validatedFields.data;
+
+  const formData_obj = {
+    name,
+    description,
+    fields: fields.map(field => ({
+      ...field,
+      id: crypto.randomUUID(),
+    })),
+    allowAnonymous,
+    isActive: true,
+  };
+
+  try {
+    const result = await dbAddEvent(year, name, date, 'form', undefined, formData_obj);
+
+    if (result.success && result.newSlug) {
+      revalidatePath(`/admin`);
+      revalidatePath(`/${year}`);
+      return { success: true, message: 'Form created!', newSlug: result.newSlug };
+    } else {
+      return { success: false, message: result.message || 'Failed to create form.' };
+    }
+  } catch (error) {
+    console.error('Error creating form:', error);
+    return {
+      success: false,
+      message: 'An unexpected error occurred. Please try again later.',
+    };
+  }
+}
+
+export async function submitFormResponse(
+  prevState: { success: boolean; message: string },
+  formData: FormData
+): Promise<{ success: boolean; message: string }> {
+  const year = parseInt(formData.get('year') as string, 10);
+  const eventSlug = formData.get('eventSlug') as string;
+  const submitterName = formData.get('submitterName') as string || undefined;
+  
+  // Extract form responses
+  const responses: { [fieldId: string]: string | string[] } = {};
+  for (const [key, value] of formData.entries()) {
+    if (key.startsWith('field_')) {
+      const fieldId = key.replace('field_', '');
+      if (responses[fieldId]) {
+        // Handle multiple values (checkboxes)
+        if (Array.isArray(responses[fieldId])) {
+          (responses[fieldId] as string[]).push(String(value));
+        } else {
+          responses[fieldId] = [responses[fieldId] as string, String(value)];
+        }
+      } else {
+        responses[fieldId] = String(value);
+      }
+    }
+  }
+
+  if (!year || !eventSlug) {
+    return { success: false, message: 'Missing required fields.' };
+  }
+
+  try {
+    const result = await dbSubmitForm(year, eventSlug, responses, submitterName);
+
+    if (result.success) {
+      revalidatePath(`/${year}/form/${eventSlug}`);
+    }
+
+    return {
+      success: result.success,
+      message: result.message || (result.success ? 'Form submitted successfully!' : 'Failed to submit form.')
+    };
+  } catch (error) {
+    console.error('Error submitting form:', error);
     return {
       success: false,
       message: 'An unexpected error occurred. Please try again later.',

@@ -42,7 +42,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (state.success && state.username) {
-        sessionStorage.setItem('admin_user', state.username);
+        localStorage.setItem('adminUser', state.username);
         router.push('/admin');
     }
   }, [state.success, state.username, router]);

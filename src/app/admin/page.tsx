@@ -29,6 +29,8 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { getYears, getEventsByYear, getAdmins as dbGetAdmins, type Event, type AdminUser } from '@/lib/data';
 import DeploymentStatus from '@/components/deployment-status';
+import PollDialog from '@/components/admin/poll-dialog';
+import FormDialog from '@/components/admin/form-dialog';
 import {
   Select,
   SelectContent,
@@ -461,7 +463,7 @@ export default function AdminDashboard() {
   const router = useRouter();
 
   useEffect(() => {
-    const user = sessionStorage.getItem('admin_user');
+    const user = localStorage.getItem('adminUser');
     if (!user) {
       router.push('/admin/login');
     } else {
@@ -495,7 +497,7 @@ export default function AdminDashboard() {
   }, [currentUser]);
 
   const handleLogout = () => {
-    sessionStorage.removeItem('admin_user');
+    localStorage.removeItem('adminUser');
     router.push('/admin/login');
   };
   
@@ -533,6 +535,8 @@ export default function AdminDashboard() {
               </div>
               <div className="flex items-center gap-2">
                 <EventDialog year={year} onSuccess={fetchData} />
+                <PollDialog year={year} onSuccess={fetchData} />
+                <FormDialog year={year} onSuccess={fetchData} />
                 <DeleteButton year={year} onDeleted={fetchData} isYear />
               </div>
             </CardHeader>

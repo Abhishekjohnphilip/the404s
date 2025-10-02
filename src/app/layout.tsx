@@ -10,6 +10,11 @@ export const metadata: Metadata = {
   title: 'THE404s - Celebrate special moments',
   description:
     'A place to share birthday wishes, photos, and videos for your loved ones.',
+  icons: {
+    icon: '/the404s.png',
+    shortcut: '/the404s.png',
+    apple: '/the404s.png',
+  },
 };
 
 export default function RootLayout({
@@ -38,7 +43,7 @@ export default function RootLayout({
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="light"
           enableSystem
           disableTransitionOnChange
         >
