@@ -29,9 +29,9 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
       {
-        protocol: 'http',
-        hostname: 'localhost',
-        port: '9002',
+        protocol: 'https',
+        hostname: 'the404s.vercel.app',
+        port: '',
         pathname: '/uploads/**',
       },
     ],

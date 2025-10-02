@@ -152,7 +152,10 @@ export class LocalStorageService implements StorageService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002';
+    // Use the Vercel URL in production, localhost in development
+    this.baseUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002';
   }
 
   async uploadFile(file: File, folder: string = 'uploads'): Promise<{ url: string; key: string }> {
@@ -160,8 +163,26 @@ export class LocalStorageService implements StorageService {
     const fileExtension = file.name.split('.').pop() || 'bin';
     const key = `${folder}/${fileId}.${fileExtension}`;
 
+    // Check if we're in a hosted environment where file system writes won't work
+    const isHosted = !!(
+      process.env.VERCEL || 
+      process.env.NETLIFY || 
+      process.env.RAILWAY_ENVIRONMENT ||
+      process.env.RENDER ||
+      process.env.HEROKU_APP_NAME ||
+      process.env.FLY_APP_NAME ||
+      process.env.PLATFORM ||
+      process.env.HOSTING_PLATFORM
+    );
+
+    if (isHosted || process.env.NODE_ENV === 'production') {
+      // In hosted environments, fall back to inline storage (base64)
+      console.warn('Local file storage not available in hosted environment. Falling back to inline storage.');
+      const inlineService = new InlineStorageService();
+      return await inlineService.uploadFile(file, folder);
+    }
+
     // For local development, we'll still use the file system
-    // In production, this should be replaced with cloud storage
     const { writeFile, mkdir } = await import('fs/promises');
     const path = await import('path');
 

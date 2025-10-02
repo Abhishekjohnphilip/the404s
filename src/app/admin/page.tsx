@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { getYears, getEventsByYear, getAdmins as dbGetAdmins, type Event, type AdminUser } from '@/lib/data';
+import DeploymentStatus from '@/components/deployment-status';
 import {
   Select,
   SelectContent,
@@ -504,6 +505,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="container mx-auto py-12 px-4 sm:px-6 lg:px-8">
+      <DeploymentStatus />
       <div className="flex justify-between items-center mb-8">
         <div>
           <h2 className="text-3xl font-headline font-bold">Admin Dashboard</h2>

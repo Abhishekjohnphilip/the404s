@@ -1,9 +1,8 @@
 
 'use server';
 
-import { promises as fs } from 'fs';
-import path from 'path';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { getDataStore, updateDataStore, logDataChange } from './data-store';
 
 export interface Wish {
   id: string;
@@ -57,30 +56,31 @@ interface DbData {
   socialPosts: SocialPost[];
 }
 
-// Path to the JSON file that acts as the database
-const dbPath = path.join(process.cwd(), 'src', 'lib', 'db.json');
-
 // --- Internal Data Access Functions ---
 
-// Reads the entire database from the JSON file.
+// Reads the entire database from the data store.
 export async function readDb(): Promise<DbData> {
-  try {
-    const fileContent = await fs.readFile(dbPath, 'utf-8');
-    const data = JSON.parse(fileContent);
-    return {
-      years: data.years || [],
-      admins: data.admins || [],
-      socialPosts: data.socialPosts || [],
-    };
-  } catch (error) {
-    // If the file doesn't exist or is empty, return an initial structure.
-    return { years: [], admins: [], socialPosts: [] };
-  }
+  const dataStore = await getDataStore();
+  return {
+    years: dataStore.years || [],
+    admins: dataStore.admins || [],
+    socialPosts: dataStore.socialPosts || [],
+  };
 }
 
-// Writes the entire database to the JSON file.
+// Updates the in-memory data store (Note: changes are not persisted on Vercel)
 export async function writeDb(db: DbData): Promise<void> {
-  await fs.writeFile(dbPath, JSON.stringify(db, null, 2), 'utf-8');
+  await updateDataStore(db);
+  await logDataChange('DATABASE_UPDATE', {
+    yearsCount: db.years.length,
+    adminsCount: db.admins.length,
+    socialPostsCount: db.socialPosts.length,
+  });
+  
+  // Log a warning about data persistence in hosted environments
+  if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+    console.warn('⚠️  Data changes are stored in memory only and will be lost on redeployment. Consider using a database for persistent storage.');
+  }
 }
 
 // --- Public Data Access Functions ---

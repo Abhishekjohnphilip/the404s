@@ -30,7 +30,7 @@
             {
               "id": "691c8356-6a4b-4b9b-b3bc-1158279fce05",
               "type": "image",
-              "url": "http://localhost:9002/uploads/64ef5881-ee6e-4613-896e-a6f6447d6354.jpg",
+              "url": "/uploads/64ef5881-ee6e-4613-896e-a6f6447d6354.jpg",
               "hint": "man looking"
             }
           ],
@@ -53,7 +53,7 @@
               "id": "5a7ef3a6-4e7e-45fb-9649-0d5e9cdaedb2",
               "author": "hi",
               "message": "hi",
-              "imageUrl": "http://localhost:9002/uploads/541e4d77-8bef-4a39-91d1-e16987246dbe.jpg",
+              "imageUrl": "/uploads/541e4d77-8bef-4a39-91d1-e16987246dbe.jpg",
               "createdAt": "2025-09-30T22:48:45.089Z",
               "isAppropriate": true
             },
