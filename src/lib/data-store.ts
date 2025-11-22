@@ -1,40 +1,78 @@
 'use server';
 
 import type { Wish, MediaItem, Event, YearData, AdminUser, SocialPost } from './data';
+import { db } from './firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-// In-memory data store that gets initialized from the JSON file
-// This approach works better for Vercel hosting since we can't write to the file system
-let dataStore: {
+// Interface for the single document structure in Firestore
+interface DbData {
   years: YearData[];
   admins: AdminUser[];
   socialPosts: SocialPost[];
-} | null = null;
+}
 
-// Initialize data store from the JSON file (read-only)
-async function initializeDataStore() {
-  if (dataStore) return dataStore;
-  
-  try {
-    // Import the JSON data directly
-    const dbData = await import('./db.json');
-    dataStore = {
-      years: dbData.years || [],
-      admins: dbData.admins || [
-        { username: 'admin', password: 'admin123' } // Default admin
-      ],
-      socialPosts: dbData.socialPosts || [],
-    };
-  } catch (error) {
-    console.error('Error loading data:', error);
-    // Fallback to empty data structure
-    dataStore = {
-      years: [],
-      admins: [{ username: 'admin', password: 'admin123' }],
-      socialPosts: [],
-    };
+// In-memory fallback for development without Firebase credentials
+let memoryStore: DbData = {
+  years: [],
+  admins: [{ username: 'admin', password: 'admin123' }],
+  socialPosts: [],
+};
+
+const DB_COLLECTION = 'app-data';
+const DB_DOC_ID = 'main';
+
+// Initialize data store
+async function initializeDataStore(): Promise<DbData> {
+  // Check if Firebase is configured
+  if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+    try {
+      const docRef = doc(db, DB_COLLECTION, DB_DOC_ID);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        return docSnap.data() as DbData;
+      } else {
+        // Initialize with default data if document doesn't exist
+        // Try to load from local JSON as initial seed if available
+        try {
+          const localDb = await import('./db.json');
+          const initialData: DbData = {
+            years: localDb.years || [],
+            admins: localDb.admins || [{ username: 'admin', password: 'admin123' }],
+            socialPosts: localDb.socialPosts || [],
+          };
+          await setDoc(docRef, initialData);
+          return initialData;
+        } catch (e) {
+          // Fallback to empty default
+          const defaultData: DbData = {
+            years: [],
+            admins: [{ username: 'admin', password: 'admin123' }],
+            socialPosts: [],
+          };
+          await setDoc(docRef, defaultData);
+          return defaultData;
+        }
+      }
+    } catch (error) {
+      console.error('Error connecting to Firestore:', error);
+      // Fallback to memory store if connection fails
+      return memoryStore;
+    }
+  } else {
+    // Fallback to local JSON/memory for development
+    try {
+      const dbData = await import('./db.json');
+      memoryStore = {
+        years: dbData.years || [],
+        admins: dbData.admins || [{ username: 'admin', password: 'admin123' }],
+        socialPosts: dbData.socialPosts || [],
+      };
+    } catch (error) {
+      console.error('Error loading local data:', error);
+    }
+    return memoryStore;
   }
-  
-  return dataStore;
 }
 
 // Get the current data store
@@ -42,18 +80,23 @@ export async function getDataStore() {
   return await initializeDataStore();
 }
 
-// For Vercel hosting, we'll store new data in environment variables or use a simple in-memory approach
-// This is a limitation but works for the hosting requirement of not using external databases
-
-// Note: In production on Vercel, any new data added will be lost on redeployment
-// This is a trade-off for not using a database as requested
-export async function updateDataStore(newData: typeof dataStore) {
-  if (newData) {
-    dataStore = newData;
+// Update the data store
+export async function updateDataStore(newData: DbData) {
+  if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+    try {
+      const docRef = doc(db, DB_COLLECTION, DB_DOC_ID);
+      await setDoc(docRef, newData);
+    } catch (error) {
+      console.error('Error updating Firestore:', error);
+      // Update memory store as fallback so app doesn't crash
+      memoryStore = newData;
+    }
+  } else {
+    memoryStore = newData;
   }
 }
 
-// Helper function to log data changes (for debugging in hosted environment)
+// Helper function to log data changes
 export async function logDataChange(operation: string, data: any) {
   console.log(`[DATA CHANGE] ${operation}:`, JSON.stringify(data, null, 2));
 }

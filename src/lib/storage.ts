@@ -1,12 +1,58 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
+import { storage } from './firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 // Storage service interface
 export interface StorageService {
   uploadFile(file: File, folder?: string): Promise<{ url: string; key: string }>;
   deleteFile(key: string): Promise<boolean>;
   getFileUrl(key: string): string;
+}
+
+// Firebase Storage Implementation
+export class FirebaseStorageService implements StorageService {
+  async uploadFile(file: File, folder: string = 'uploads'): Promise<{ url: string; key: string }> {
+    const fileId = crypto.randomUUID();
+    const fileExtension = file.name.split('.').pop() || 'bin';
+    const key = `${folder}/${fileId}.${fileExtension}`;
+    const storageRef = ref(storage, key);
+
+    try {
+      const bytes = await file.arrayBuffer();
+      const buffer = new Uint8Array(bytes);
+      await uploadBytes(storageRef, buffer);
+      const url = await getDownloadURL(storageRef);
+
+      return {
+        url,
+        key,
+      };
+    } catch (error) {
+      console.error('Error uploading to Firebase Storage:', error);
+      throw new Error('Failed to upload file to Firebase Storage');
+    }
+  }
+
+  async deleteFile(key: string): Promise<boolean> {
+    const storageRef = ref(storage, key);
+    try {
+      await deleteObject(storageRef);
+      return true;
+    } catch (error) {
+      console.error('Error deleting from Firebase Storage:', error);
+      return false;
+    }
+  }
+
+  getFileUrl(key: string): string {
+    // Note: This is a synchronous method but getting the download URL is async.
+    // In a real scenario, we'd store the full URL.
+    // For now, we'll return the key if we can't get the URL synchronously,
+    // but the uploadFile method returns the full URL which is what gets stored.
+    return key;
+  }
 }
 
 // AWS S3 Storage Implementation
@@ -153,7 +199,7 @@ export class LocalStorageService implements StorageService {
 
   constructor() {
     // Use the Vercel URL in production, localhost in development
-    this.baseUrl = process.env.VERCEL_URL 
+    this.baseUrl = process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
       : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002';
   }
@@ -165,8 +211,8 @@ export class LocalStorageService implements StorageService {
 
     // Check if we're in a hosted environment where file system writes won't work
     const isHosted = !!(
-      process.env.VERCEL || 
-      process.env.NETLIFY || 
+      process.env.VERCEL ||
+      process.env.NETLIFY ||
       process.env.RAILWAY_ENVIRONMENT ||
       process.env.RENDER ||
       process.env.HEROKU_APP_NAME ||
@@ -262,12 +308,12 @@ export class InlineStorageService implements StorageService {
 // Storage service factory
 export function createStorageService(): StorageService {
   const storageType = process.env.STORAGE_TYPE || 'auto';
-  
+
   // In production/hosted environments, default to inline storage if no cloud storage is configured
   const isProduction = process.env.NODE_ENV === 'production';
   const isHosted = !!(
-    process.env.VERCEL || 
-    process.env.NETLIFY || 
+    process.env.VERCEL ||
+    process.env.NETLIFY ||
     process.env.RAILWAY_ENVIRONMENT ||
     process.env.RENDER ||
     process.env.HEROKU_APP_NAME ||
@@ -275,7 +321,6 @@ export function createStorageService(): StorageService {
     process.env.PLATFORM ||
     process.env.HOSTING_PLATFORM
   );
-  
 
   // Auto-detect storage type for hosted environments
   if (storageType === 'auto') {
@@ -287,6 +332,9 @@ export function createStorageService(): StorageService {
       } else if (process.env.AWS_S3_BUCKET_NAME) {
         console.log('Using AWS S3 storage for hosted environment');
         return new S3StorageService();
+      } else if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+        console.log('Using Firebase storage for hosted environment');
+        return new FirebaseStorageService();
       } else {
         // Use inline storage for hosted environments without cloud storage
         console.log('Using inline storage for hosted environment (files saved as base64 in database)');
@@ -310,6 +358,11 @@ export function createStorageService(): StorageService {
         throw new Error('Cloudinary configuration missing. Please set CLOUDINARY_CLOUD_NAME and other Cloudinary environment variables.');
       }
       return new CloudinaryStorageService();
+    case 'firebase':
+      if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+        throw new Error('Firebase configuration missing. Please set NEXT_PUBLIC_FIREBASE_API_KEY and other Firebase environment variables.');
+      }
+      return new FirebaseStorageService();
     case 'inline':
       return new InlineStorageService();
     case 'local':
