@@ -1,4 +1,5 @@
 import { getEventBySlug, getYears, getEventsByYear } from '@/lib/data';
+import { verifySession } from '@/lib/auth';
 import { notFound } from 'next/navigation';
 import MediaGallery from '@/app/[year]/birthday/[slug]/media-gallery';
 import { Calendar, PartyPopper } from 'lucide-react';
@@ -48,7 +49,8 @@ export default async function EventPage({
     notFound();
   }
 
-  const isAdmin = searchParamsData.admin === 'true';
+  const session = await verifySession();
+  const isAdmin = !!session;
 
   return (
     <div className="bg-secondary">

@@ -1,4 +1,5 @@
 import { getEventBySlug, getYears, getEventsByYear } from '@/lib/data';
+import { verifySession } from '@/lib/auth';
 import { notFound } from 'next/navigation';
 import MediaGallery from './media-gallery';
 import WishWall from './wish-wall';
@@ -49,7 +50,8 @@ export default async function BirthdayPage({
     notFound();
   }
 
-  const isAdmin = searchParamsData.admin === 'true';
+  const session = await verifySession();
+  const isAdmin = !!session;
 
   return (
     <div className="bg-secondary">

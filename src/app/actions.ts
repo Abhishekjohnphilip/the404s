@@ -26,6 +26,7 @@ import {
 } from '@/lib/data';
 import { redirect } from 'next/navigation';
 import type { Wish, MediaItem } from '@/lib/data';
+import { createSession, verifySession, deleteSession } from '@/lib/auth';
 
 const wishSchema = z.object({
   author: z.string().min(1, 'Name is required').max(50),
@@ -76,9 +77,8 @@ export async function submitWish(
     if (!moderationResult.isAppropriate) {
       return {
         success: false,
-        message: `Your message was flagged as inappropriate. Reason: ${
-          moderationResult.reason || 'Content policy violation'
-        }. Please revise.`,
+        message: `Your message was flagged as inappropriate. Reason: ${moderationResult.reason || 'Content policy violation'
+          }. Please revise.`,
       };
     }
 
@@ -133,6 +133,11 @@ export async function submitWish(
 }
 
 export async function deleteWish(formData: FormData) {
+  const session = await verifySession();
+  if (!session) {
+    return { success: false, message: 'Unauthorized. Admin access required.' };
+  }
+
   const wishId = formData.get('wishId') as string;
   const personSlug = formData.get('personSlug') as string;
   const year = formData.get('year') as string;
@@ -179,6 +184,7 @@ export async function login(prevState: any, formData: FormData) {
   );
 
   if (admin) {
+    await createSession(admin.username);
     return {
       success: true,
       message: 'Login successful!',
@@ -192,11 +198,21 @@ export async function login(prevState: any, formData: FormData) {
   }
 }
 
+export async function logout() {
+  await deleteSession();
+  redirect('/admin/login');
+}
+
 const addYearSchema = z.object({
   year: z.coerce.number().int().min(1900, 'Year must be a valid year.'),
 });
 
 export async function addYear(prevState: any, formData: FormData) {
+  const session = await verifySession();
+  if (!session) {
+    return { success: false, message: 'Unauthorized.' };
+  }
+
   const validatedFields = addYearSchema.safeParse({
     year: formData.get('year'),
   });
@@ -262,6 +278,11 @@ export async function addEvent(
   prevState: EventFormState,
   formData: FormData
 ): Promise<EventFormState> {
+  const session = await verifySession();
+  if (!session) {
+    return { success: false, message: 'Unauthorized.' };
+  }
+
   const validatedFields = addEventSchema.safeParse({
     year: formData.get('year'),
     name: formData.get('name'),
@@ -300,6 +321,11 @@ export async function updateEvent(
   prevState: EventFormState,
   formData: FormData
 ): Promise<EventFormState> {
+  const session = await verifySession();
+  if (!session) {
+    return { success: false, message: 'Unauthorized.' };
+  }
+
   const validatedFields = updateEventSchema.safeParse({
     year: formData.get('year'),
     originalSlug: formData.get('originalSlug'),
@@ -344,6 +370,11 @@ const deleteEventSchema = z.object({
 });
 
 export async function deleteEvent(formData: FormData) {
+  const session = await verifySession();
+  if (!session) {
+    return { success: false, message: 'Unauthorized.' };
+  }
+
   const validatedFields = deleteEventSchema.safeParse({
     year: formData.get('year'),
     eventSlug: formData.get('eventSlug'),
@@ -372,6 +403,11 @@ const deleteYearSchema = z.object({
 });
 
 export async function deleteYear(formData: FormData) {
+  const session = await verifySession();
+  if (!session) {
+    return { success: false, message: 'Unauthorized.' };
+  }
+
   const validatedFields = deleteYearSchema.safeParse({
     year: formData.get('year'),
   });
@@ -402,6 +438,11 @@ export async function addMediaToEvent(
   prevState: { success: boolean; message: string },
   formData: FormData
 ): Promise<{ success: boolean; message: string }> {
+  const session = await verifySession();
+  if (!session) {
+    return { success: false, message: 'Unauthorized.' };
+  }
+
   const mediaFiles = formData.getAll('media[]') as File[];
   const mediaTypes = formData
     .getAll('mediaTypes[]')
@@ -428,10 +469,10 @@ export async function addMediaToEvent(
       media.map(async (file, index) => {
         const type = mediaTypes[index];
         const fileId = crypto.randomUUID();
-        
+
         // Upload file to cloud storage
         const uploadResult = await uploadFileToStorage(file, 'media');
-        
+
         // Generate hint for images
         let hint = 'media';
         if (type === 'image') {
@@ -485,6 +526,11 @@ const addAdminSchema = z.object({
 });
 
 export async function addAdmin(prevState: any, formData: FormData) {
+  const session = await verifySession();
+  if (!session) {
+    return { success: false, message: 'Unauthorized.' };
+  }
+
   const validatedFields = addAdminSchema.safeParse({
     username: formData.get('username'),
     password: formData.get('password'),
@@ -512,6 +558,11 @@ const deleteAdminSchema = z.object({
 });
 
 export async function deleteAdmin(formData: FormData) {
+  const session = await verifySession();
+  if (!session) {
+    return { success: false, message: 'Unauthorized.' };
+  }
+
   const validatedFields = deleteAdminSchema.safeParse({
     username: formData.get('username'),
   });
@@ -541,6 +592,11 @@ export async function addSocialPost(
   prevState: { success: boolean; message: string },
   formData: FormData
 ): Promise<{ success: boolean; message: string }> {
+  const session = await verifySession();
+  if (!session) {
+    return { success: false, message: 'Unauthorized.' };
+  }
+
   const validatedFields = addSocialPostSchema.safeParse({
     platform: formData.get('platform'),
     title: formData.get('title'),
@@ -580,6 +636,11 @@ export async function addSocialPost(
 }
 
 export async function deleteSocialPost(formData: FormData) {
+  const session = await verifySession();
+  if (!session) {
+    return { success: false, message: 'Unauthorized.' };
+  }
+
   const postId = formData.get('postId') as string;
 
   if (!postId) {
@@ -610,8 +671,13 @@ export async function addPoll(
   prevState: EventFormState,
   formData: FormData
 ): Promise<EventFormState> {
+  const session = await verifySession();
+  if (!session) {
+    return { success: false, message: 'Unauthorized.' };
+  }
+
   const options = formData.getAll('options[]').map(String).filter(Boolean);
-  
+
   const validatedFields = addPollSchema.safeParse({
     year: formData.get('year'),
     name: formData.get('name'),
@@ -703,8 +769,13 @@ export async function addForm(
   prevState: EventFormState,
   formData: FormData
 ): Promise<EventFormState> {
+  const session = await verifySession();
+  if (!session) {
+    return { success: false, message: 'Unauthorized.' };
+  }
+
   const fieldsData = JSON.parse(formData.get('fields') as string || '[]');
-  
+
   const validatedFields = addFormSchema.safeParse({
     year: formData.get('year'),
     name: formData.get('name'),
@@ -760,7 +831,7 @@ export async function submitFormResponse(
   const year = parseInt(formData.get('year') as string, 10);
   const eventSlug = formData.get('eventSlug') as string;
   const submitterName = formData.get('submitterName') as string || undefined;
-  
+
   // Extract form responses
   const responses: { [fieldId: string]: string | string[] } = {};
   for (const [key, value] of formData.entries()) {
