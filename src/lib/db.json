@@ -202,7 +202,15 @@
           "date": "November 30",
           "type": "birthday",
           "media": [],
-          "wishes": []
+          "wishes": [
+            {
+              "id": "53cb9940-abf9-4069-930f-b42fca541019",
+              "author": "Anonymous",
+              "message": "haii",
+              "createdAt": "2025-11-22T14:56:21.325Z",
+              "isAppropriate": true
+            }
+          ]
         },
         {
           "slug": "darsan-k",

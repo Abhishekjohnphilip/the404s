@@ -3,6 +3,8 @@
 import type { Wish, MediaItem, Event, YearData, AdminUser, SocialPost } from './data';
 import { db } from './firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 // Interface for the single document structure in Firestore
 interface DbData {
@@ -20,6 +22,7 @@ let memoryStore: DbData = {
 
 const DB_COLLECTION = 'app-data';
 const DB_DOC_ID = 'main';
+const LOCAL_DB_PATH = path.join(process.cwd(), 'src', 'lib', 'db.json');
 
 // Initialize data store
 async function initializeDataStore(): Promise<DbData> {
@@ -35,7 +38,8 @@ async function initializeDataStore(): Promise<DbData> {
         // Initialize with default data if document doesn't exist
         // Try to load from local JSON as initial seed if available
         try {
-          const localDb = await import('./db.json');
+          const fileContent = await fs.readFile(LOCAL_DB_PATH, 'utf-8');
+          const localDb = JSON.parse(fileContent);
           const initialData: DbData = {
             years: localDb.years || [],
             admins: localDb.admins || [{ username: 'admin', password: 'admin123' }],
@@ -62,7 +66,8 @@ async function initializeDataStore(): Promise<DbData> {
   } else {
     // Fallback to local JSON/memory for development
     try {
-      const dbData = await import('./db.json');
+      const fileContent = await fs.readFile(LOCAL_DB_PATH, 'utf-8');
+      const dbData = JSON.parse(fileContent);
       memoryStore = {
         years: dbData.years || [],
         admins: dbData.admins || [{ username: 'admin', password: 'admin123' }],
@@ -70,6 +75,7 @@ async function initializeDataStore(): Promise<DbData> {
       };
     } catch (error) {
       console.error('Error loading local data:', error);
+      // If file doesn't exist or error, keep default memoryStore
     }
     return memoryStore;
   }
@@ -93,6 +99,12 @@ export async function updateDataStore(newData: DbData) {
     }
   } else {
     memoryStore = newData;
+    // Persist to local file
+    try {
+      await fs.writeFile(LOCAL_DB_PATH, JSON.stringify(newData, null, 2), 'utf-8');
+    } catch (error) {
+      console.error('Error writing to local db.json:', error);
+    }
   }
 }
 
@@ -100,3 +112,4 @@ export async function updateDataStore(newData: DbData) {
 export async function logDataChange(operation: string, data: any) {
   console.log(`[DATA CHANGE] ${operation}:`, JSON.stringify(data, null, 2));
 }
+
