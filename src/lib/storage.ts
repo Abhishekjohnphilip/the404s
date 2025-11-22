@@ -305,76 +305,68 @@ export class InlineStorageService implements StorageService {
   }
 }
 
-// Storage service factory
-export function createStorageService(): StorageService {
-  const storageType = process.env.STORAGE_TYPE || 'auto';
+// --- GitHub Storage Service ---
+class GitHubStorageService implements StorageService {
+  async uploadFile(file: File, path: string): Promise<string> {
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Content = buffer.toString('binary');
 
-  // In production/hosted environments, default to inline storage if no cloud storage is configured
-  const isProduction = process.env.NODE_ENV === 'production';
-  const isHosted = !!(
-    process.env.VERCEL ||
-    process.env.NETLIFY ||
-    process.env.RAILWAY_ENVIRONMENT ||
-    process.env.RENDER ||
-    process.env.HEROKU_APP_NAME ||
-    process.env.FLY_APP_NAME ||
-    process.env.PLATFORM ||
-    process.env.HOSTING_PLATFORM
-  );
+    const { saveGitHubFile } = await import('./github-store');
 
-  // Auto-detect storage type for hosted environments
-  if (storageType === 'auto') {
-    if (isHosted || isProduction) {
-      // Check if cloud storage is configured
-      if (process.env.CLOUDINARY_CLOUD_NAME) {
-        console.log('Using Cloudinary storage for hosted environment');
-        return new CloudinaryStorageService();
-      } else if (process.env.AWS_S3_BUCKET_NAME) {
-        console.log('Using AWS S3 storage for hosted environment');
-        return new S3StorageService();
-      } else if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
-        console.log('Using Firebase storage for hosted environment');
-        return new FirebaseStorageService();
-      } else {
-        // Use inline storage for hosted environments without cloud storage
-        console.log('Using inline storage for hosted environment (files saved as base64 in database)');
-        return new InlineStorageService();
-      }
-    } else {
-      // Use local storage for development
-      console.log('Using local storage for development environment');
-      return new LocalStorageService();
+    const success = await saveGitHubFile(
+      `public/${path}`,
+      base64Content,
+      `Upload ${path}`,
+      undefined // sha
+    );
+
+    if (!success) {
+      throw new Error('Failed to upload to GitHub');
     }
+
+    return `/${path}`;
   }
 
-  switch (storageType) {
-    case 's3':
-      if (!process.env.AWS_S3_BUCKET_NAME) {
-        throw new Error('AWS S3 configuration missing. Please set AWS_S3_BUCKET_NAME and other AWS environment variables.');
-      }
-      return new S3StorageService();
-    case 'cloudinary':
-      if (!process.env.CLOUDINARY_CLOUD_NAME) {
-        throw new Error('Cloudinary configuration missing. Please set CLOUDINARY_CLOUD_NAME and other Cloudinary environment variables.');
-      }
-      return new CloudinaryStorageService();
-    case 'firebase':
-      if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
-        throw new Error('Firebase configuration missing. Please set NEXT_PUBLIC_FIREBASE_API_KEY and other Firebase environment variables.');
-      }
-      return new FirebaseStorageService();
-    case 'inline':
-      return new InlineStorageService();
-    case 'local':
-    default:
-      if ((isProduction || isHosted) && storageType === 'local') {
-        console.warn('Local storage detected in production environment. This will not work on hosted platforms.');
-        console.warn('Switching to inline storage for hosted environment.');
-        return new InlineStorageService();
-      }
-      return new LocalStorageService();
+  async deleteFile(path: string): Promise<boolean> {
+    return true;
+  }
+
+  getFileUrl(key: string): string {
+    return key;
   }
 }
 
-// Export the default storage service instance
+// Storage service factory
+export function createStorageService(): StorageService {
+  // 1. GitHub (Highest Priority for Vercel "Save in Code")
+  if (process.env.GITHUB_TOKEN) {
+    return new GitHubStorageService();
+  }
+
+  // 2. Firebase
+  if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+    return new FirebaseStorageService();
+  }
+
+  // 3. Cloudinary
+  if (process.env.CLOUDINARY_CLOUD_NAME) {
+    return new CloudinaryStorageService();
+  }
+
+  // 4. AWS S3
+  if (process.env.AWS_ACCESS_KEY_ID) {
+    return new S3StorageService();
+  }
+
+  // 5. Local (Default)
+  if (process.env.STORAGE_TYPE === 'local') {
+    return new LocalStorageService();
+  }
+
+  // 6. Inline (Fallback)
+  return new InlineStorageService();
+}
+
 export const storageService = createStorageService();
+

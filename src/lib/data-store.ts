@@ -20,13 +20,28 @@ let memoryStore: DbData = {
   socialPosts: [],
 };
 
+import { getGitHubFile, saveGitHubFile } from './github-store';
+
 const DB_COLLECTION = 'app-data';
 const DB_DOC_ID = 'main';
 const LOCAL_DB_PATH = path.join(process.cwd(), 'src', 'lib', 'db.json');
+const GITHUB_DB_PATH = 'src/lib/db.json';
 
 // Initialize data store
 async function initializeDataStore(): Promise<DbData> {
-  // Check if Firebase is configured
+  // 1. Try GitHub (Highest Priority for Vercel "Save in Code")
+  if (process.env.GITHUB_TOKEN) {
+    const ghData = await getGitHubFile(GITHUB_DB_PATH);
+    if (ghData) {
+      try {
+        return JSON.parse(ghData.content) as DbData;
+      } catch (e) {
+        console.error('Error parsing GitHub data:', e);
+      }
+    }
+  }
+
+  // 2. Try Firebase
   if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
     try {
       const docRef = doc(db, DB_COLLECTION, DB_DOC_ID);
@@ -63,22 +78,22 @@ async function initializeDataStore(): Promise<DbData> {
       // Fallback to memory store if connection fails
       return memoryStore;
     }
-  } else {
-    // Fallback to local JSON/memory for development
-    try {
-      const fileContent = await fs.readFile(LOCAL_DB_PATH, 'utf-8');
-      const dbData = JSON.parse(fileContent);
-      memoryStore = {
-        years: dbData.years || [],
-        admins: dbData.admins || [{ username: 'admin', password: 'admin123' }],
-        socialPosts: dbData.socialPosts || [],
-      };
-    } catch (error) {
-      console.error('Error loading local data:', error);
-      // If file doesn't exist or error, keep default memoryStore
-    }
-    return memoryStore;
   }
+
+  // 3. Fallback to local JSON/memory (Dev mode)
+  try {
+    const fileContent = await fs.readFile(LOCAL_DB_PATH, 'utf-8');
+    const dbData = JSON.parse(fileContent);
+    memoryStore = {
+      years: dbData.years || [],
+      admins: dbData.admins || [{ username: 'admin', password: 'admin123' }],
+      socialPosts: dbData.socialPosts || [],
+    };
+  } catch (error) {
+    console.error('Error loading local data:', error);
+    // If file doesn't exist or error, keep default memoryStore
+  }
+  return memoryStore;
 }
 
 // Get the current data store
@@ -88,6 +103,19 @@ export async function getDataStore() {
 
 // Update the data store
 export async function updateDataStore(newData: DbData) {
+  // 1. Try GitHub
+  if (process.env.GITHUB_TOKEN) {
+    await saveGitHubFile(
+      GITHUB_DB_PATH,
+      JSON.stringify(newData, null, 2),
+      'Update data via App'
+    );
+    // Also update memory store for immediate read (though next request might be stale until rebuild)
+    memoryStore = newData;
+    return;
+  }
+
+  // 2. Try Firebase
   if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
     try {
       const docRef = doc(db, DB_COLLECTION, DB_DOC_ID);
@@ -99,7 +127,7 @@ export async function updateDataStore(newData: DbData) {
     }
   } else {
     memoryStore = newData;
-    // Persist to local file
+    // 3. Persist to local file
     try {
       await fs.writeFile(LOCAL_DB_PATH, JSON.stringify(newData, null, 2), 'utf-8');
     } catch (error) {
@@ -107,6 +135,7 @@ export async function updateDataStore(newData: DbData) {
     }
   }
 }
+
 
 // Helper function to log data changes
 export async function logDataChange(operation: string, data: any) {
